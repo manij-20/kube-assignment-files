@@ -12,11 +12,11 @@
 ~h
 # Command Line History (newest to oldest):
 :wq!
-|2,0,1772550302,,"wq!"
-:%d
-|2,0,1772550206,,"%d"
+|2,0,1773237676,,"wq!"
 :q!
-|2,0,1772463687,,"q!"
+|2,0,1773237659,,"q!"
+:%d
+|2,0,1773160395,,"%d"
 :q1
 |2,0,1772182426,,"q1"
 
@@ -30,420 +30,805 @@
 
 # Registers:
 ""1	LINE	0
-	apiVersion: storage.k8s.io/v1
-	kind: StorageClass
+	apiVersion: networking.k8s.io/v1
+	kind: Ingress
 	metadata:
-	  name: efs-sc
-	provisioner: efs.csi.aws.com
-	parameters:
-	  provisioningMode: efs-ap
-	  fileSystemId: fs-xxxxxxxx   # <-- replace with your EFS ID
-	  directoryPerms: "700"
-	reclaimPolicy: Delete
-	volumeBindingMode: Immediate
-|3,1,1,1,11,0,1772550206,"apiVersion: storage.k8s.io/v1","kind: StorageClass","metadata:","  name: efs-sc","provisioner: efs.csi.aws.com","parameters:","  provisioningMode: efs-ap","  fileSystemId: fs-xxxxxxxx   # <-- replace with your EFS ID","  directoryPerms: \"700\"","reclaimPolicy: Delete","volumeBindingMode: Immediate"
+	  name: wordpress-jenkins-ingress
+	  annotations:
+	    nginx.ingress.kubernetes.io/rewrite-target: /
+	spec:
+	  ingressClassName: nginx
+	  rules:
+	  - host: wordpress.local
+	    http:
+	      paths:
+	      - path: /
+	        pathType: Prefix
+	        backend:
+	          service:
+	            name: wordpress-service
+	            port:
+	              number: 80
+	
+	  - host: jenkins.local
+	    http:
+	      paths:
+	      - path: /
+	        pathType: Prefix
+	        backend:
+	          service:
+	            name: jenkins-service
+	            port:
+	              number: 8080
+|3,1,1,1,30,0,1773160395,"apiVersion: networking.k8s.io/v1","kind: Ingress","metadata:","  name: wordpress-jenkins-ingress","  annotations:","    nginx.ingress.kubernetes.io/rewrite-target: /","spec:","  ingressClassName: nginx","  rules:","  - host: wordpress.local","    http:","      paths:","      - path: /","        pathType: Prefix","        backend:","          service:","            name: wordpress-service","            port:",>26
+|<"              number: 80","","  - host: jenkins.local","    http:","      paths:","      - path: /","        pathType: Prefix","        backend:","          service:","            name: jenkins-service","            port:","              number: 8080"
 "2	LINE	0
-	apiVersion: apps/v1
-	kind: Deployment
+	apiVersion: v1
+	kind: Service
 	metadata:
-	  name: nginx-deployment
+	  name: wordpress-mysql
 	spec:
-	  replicas: 2
-	  strategy:
-	    type: RollingUpdate
-	    rollingUpdate:
-	      maxSurge: 2
-	      maxUnavailable: 1
+	  ports:
+	    - port: 3306
 	  selector:
-	    matchLabels:
-	      app: nginx
-	  template:
-	    metadata:
-	      labels:
-	        app: nginx
-	    spec:
-	      containers:
-	        - name: nginx
-	          image: nginx:1.29.5-perl
-	      affinity:
-	        podAffinity:
-	          requiredDuringSchedulingIgnoredDuringExecution:
-	            - labelSelector:
-	                matchExpressions:
-	                  - key: env
-	                    operator: In
-	                    values:
-	                      - dev
-	              topologyKey: "kubernetes.io/hostname"
-|3,0,2,1,32,0,1772464628,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: nginx-deployment","spec:","  replicas: 2","  strategy:","    type: RollingUpdate","    rollingUpdate:","      maxSurge: 2","      maxUnavailable: 1","  selector:","    matchLabels:","      app: nginx","  template:","    metadata:","      labels:","        app: nginx","    spec:","      containers:","        - name: nginx","          image: nginx:1.29.5-perl",>17
-|<"      affinity:","        podAffinity:","          requiredDuringSchedulingIgnoredDuringExecution:","            - labelSelector:","                matchExpressions:","                  - key: env","                    operator: In","                    values:","                      - dev","              topologyKey: \"kubernetes.io/hostname\""
+	    app: wordpress
+|3,0,2,1,9,0,1773158889,"apiVersion: v1","kind: Service","metadata:","  name: wordpress-mysql","spec:","  ports:","    - port: 3306","  selector:","    app: wordpress"
 "3	LINE	0
-	apiVersion: apps/v1
-	kind: Deployment
+	apiVersion: v1
+	kind: PersistentVolumeClaim
 	metadata:
-	  name: nginx-deployment
+	  name: mysql-pvc
 	spec:
-	  replicas: 2
-	  strategy:
-	    type: RollingUpdate
-	    rollingUpdate:
-	      maxSurge: 2
-	      maxUnavailable: 1
-	  selector:
-	    matchLabels:
-	      app: nginx
-	  template:
-	    metadata:
-	      labels:
-	        app: nginx
-	    spec:
-	      containers:
-	        - name: nginx
-	          image: nginx:1.29.5-perl
-	      affinity:
-	        podAffinity:
-	          requiredDuringSchedulingIgnoredDuringExecution:
-	            - labelSelector:
-	                matchExpressions:
-	                  - key: env
-	                    operator: In
-	                    values:
-	                      - prod
-|3,0,3,1,31,0,1772464330,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: nginx-deployment","spec:","  replicas: 2","  strategy:","    type: RollingUpdate","    rollingUpdate:","      maxSurge: 2","      maxUnavailable: 1","  selector:","    matchLabels:","      app: nginx","  template:","    metadata:","      labels:","        app: nginx","    spec:","      containers:","        - name: nginx","          image: nginx:1.29.5-perl",>17
-|<"      affinity:","        podAffinity:","          requiredDuringSchedulingIgnoredDuringExecution:","            - labelSelector:","                matchExpressions:","                  - key: env","                    operator: In","                    values:","                      - prod"
+	  accessModes:
+	    - ReadWriteOnce
+	  storageClassName: ebs-sc
+	  resources:
+	    requests:
+	      storage: 5Gi
+|3,0,3,1,11,0,1773158617,"apiVersion: v1","kind: PersistentVolumeClaim","metadata:","  name: mysql-pvc","spec:","  accessModes:","    - ReadWriteOnce","  storageClassName: ebs-sc","  resources:","    requests:","      storage: 5Gi"
 "4	LINE	0
 	apiVersion: apps/v1
 	kind: Deployment
 	metadata:
-	  name: nginx-deployment
+	  name: wordpress
 	spec:
-	  replicas: 2
-	  strategy:
-	    type: RollingUpdate
-	    rollingUpdate:
-	      maxSurge: 2
-	      maxUnavailable: 1
+	  replicas: 1
 	  selector:
 	    matchLabels:
-	      app: nginx
+	      app: wordpress
 	  template:
 	    metadata:
 	      labels:
-	        app: nginx
+	        app: wordpress
 	    spec:
 	      containers:
-	        - name: nginx
-	          image: nginx:1.29.5-perl
-	      affinity:
-	        nodeAffinity:
-	          preferredDuringSchedulingIgnoredDuringExecution:
-	            - weight: 1
-	              preference:
-	                matchExpressions:
-	                  - key: env
-	                    operator: In
-	                    values:
-	                      - qa
-|3,0,4,1,32,0,1772464238,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: nginx-deployment","spec:","  replicas: 2","  strategy:","    type: RollingUpdate","    rollingUpdate:","      maxSurge: 2","      maxUnavailable: 1","  selector:","    matchLabels:","      app: nginx","  template:","    metadata:","      labels:","        app: nginx","    spec:","      containers:","        - name: nginx","          image: nginx:1.29.5-perl",>17
-|<"      affinity:","        nodeAffinity:","          preferredDuringSchedulingIgnoredDuringExecution:","            - weight: 1","              preference:","                matchExpressions:","                  - key: env","                    operator: In","                    values:","                      - qa"
+	      - image: wordpress:latest
+	        name: wordpress
+	        env:
+	        - name: WORDPRESS_DB_HOST
+	          value: wordpress-mysql
+	        - name: WORDPRESS_DB_PASSWORD
+	          valueFrom:
+	            secretKeyRef:
+	              name: mysql-pass
+	              key: password
+	        ports:
+	        - containerPort: 80
+|3,0,4,1,27,0,1773158432,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: wordpress","spec:","  replicas: 1","  selector:","    matchLabels:","      app: wordpress","  template:","    metadata:","      labels:","        app: wordpress","    spec:","      containers:","      - image: wordpress:latest","        name: wordpress","        env:","        - name: WORDPRESS_DB_HOST","          value: wordpress-mysql",>39
+|<"        - name: WORDPRESS_DB_PASSWORD","          valueFrom:","            secretKeyRef:","              name: mysql-pass","              key: password","        ports:","        - containerPort: 80"
 "5	LINE	0
 	apiVersion: apps/v1
 	kind: Deployment
 	metadata:
-	  name: nginx-deployment
+	  name: wordpress-mysql
 	spec:
-	  replicas: 2
-	  strategy:
-	    type: RollingUpdate
-	    rollingUpdate:
-	      maxSurge: 2
-	      maxUnavailable: 1
 	  selector:
 	    matchLabels:
-	      app: nginx
+	      app: wordpress
+	  strategy:
+	    type: Recreate
 	  template:
 	    metadata:
 	      labels:
-	        app: nginx
+	        app: wordpress
 	    spec:
 	      containers:
-	        - name: nginx
-	          image: nginx:1.29.5-perl
-	      spec:
-	  affinity:
-	    nodeAffinity:
-	      preferredDuringSchedulingIgnoredDuringExecution:
-	      - weight: 1
-	        preference:
-	          matchExpressions:
-	          - key: disktype
-	            operator: In
-	            values:
-	            - ssd  
-	
-|3,0,5,1,34,0,1772464012,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: nginx-deployment","spec:","  replicas: 2","  strategy:","    type: RollingUpdate","    rollingUpdate:","      maxSurge: 2","      maxUnavailable: 1","  selector:","    matchLabels:","      app: nginx","  template:","    metadata:","      labels:","        app: nginx","    spec:","      containers:","        - name: nginx","          image: nginx:1.29.5-perl","      spec:",>13
-|<"  affinity:","    nodeAffinity:","      preferredDuringSchedulingIgnoredDuringExecution:","      - weight: 1","        preference:","          matchExpressions:","          - key: disktype","            operator: In","            values:","            - ssd  ",""
+	      - image: mysql:8.0
+	        name: mysql
+	        env:
+	        - name: MYSQL_ROOT_PASSWORD
+	          valueFrom:
+	            secretKeyRef:
+	              name: mysql-pass
+	              key: password
+	        - name: MYSQL_DATABASE
+	          value: wordpress
+	        ports:
+	        - containerPort: 3306
+	        volumeMounts:
+	        - name: mysql-storage
+	          mountPath: /var/lib/mysql
+	      volumes:
+	      - name: mysql-storage
+	        persistentVolumeClaim:
+	          claimName: mysql-pvc
+|3,0,5,1,35,0,1773158394,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: wordpress-mysql","spec:","  selector:","    matchLabels:","      app: wordpress","  strategy:","    type: Recreate","  template:","    metadata:","      labels:","        app: wordpress","    spec:","      containers:","      - image: mysql:8.0","        name: mysql","        env:","        - name: MYSQL_ROOT_PASSWORD","          valueFrom:","            secretKeyRef:",>32
+|<"              name: mysql-pass","              key: password","        - name: MYSQL_DATABASE","          value: wordpress","        ports:","        - containerPort: 3306","        volumeMounts:","        - name: mysql-storage","          mountPath: /var/lib/mysql","      volumes:","      - name: mysql-storage","        persistentVolumeClaim:","          claimName: mysql-pvc"
 "6	LINE	0
+	[200~apiVersion: v1
+	kind: PersistentVolumeClaim
+	metadata:
+	    name: mysql-pvc
+	    spec:
+	        accessModes:
+	              - ReadWriteOnce
+	                  storageClassName: ebs-sc
+	                      resources:
+	                            requests:
+	                                    storage: 5Gi
+|3,0,6,1,11,0,1773155855,"[200~apiVersion: v1","kind: PersistentVolumeClaim","metadata:","    name: mysql-pvc","    spec:","        accessModes:","              - ReadWriteOnce","                  storageClassName: ebs-sc","                      resources:","                            requests:","                                    storage: 5Gi"
+"7	LINE	0
+	apiVersion: v1
+	kind: PersistentVolumeClaim
+	metadata:
+	  name: mysql-pvc
+	spec:
+	  accessModes:
+	    - ReadWriteOnce
+	  resources:
+	    requests:
+	      storage: 5Gi
+|3,0,7,1,10,0,1773155828,"apiVersion: v1","kind: PersistentVolumeClaim","metadata:","  name: mysql-pvc","spec:","  accessModes:","    - ReadWriteOnce","  resources:","    requests:","      storage: 5Gi"
+"8	LINE	0
 	apiVersion: apps/v1
 	kind: Deployment
 	metadata:
-	  name: nginx-deployment
+	  name: backend
 	spec:
 	  replicas: 2
-	  strategy:
-	    type: RollingUpdate
-	    rollingUpdate:
-	      maxSurge: 2
-	      maxUnavailable: 1
 	  selector:
 	    matchLabels:
-	      app: nginx
+	      app: backend
 	  template:
 	    metadata:
 	      labels:
-	        app: nginx
+	        app: backend
 	    spec:
 	      containers:
-	        - name: nginx
-	          image: nginx:1.29.5-perl
-	      spec:
-	  affinity:
-	    nodeAffinity:
-	      requiredDuringSchedulingIgnoredDuringExecution:
-	        nodeSelectorTerms:
-	        - matchExpressions:
-	          - key: disktype
-	            operator: In
-	            values:
-	            - ssd
-|3,0,6,1,32,0,1772463453,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: nginx-deployment","spec:","  replicas: 2","  strategy:","    type: RollingUpdate","    rollingUpdate:","      maxSurge: 2","      maxUnavailable: 1","  selector:","    matchLabels:","      app: nginx","  template:","    metadata:","      labels:","        app: nginx","    spec:","      containers:","        - name: nginx","          image: nginx:1.29.5-perl","      spec:",>13
-|<"  affinity:","    nodeAffinity:","      requiredDuringSchedulingIgnoredDuringExecution:","        nodeSelectorTerms:","        - matchExpressions:","          - key: disktype","            operator: In","            values:","            - ssd"
+	      - name: backend
+	        image: mani2009/backend-app
+	        ports:
+	        - containerPort: 3000
+|3,0,8,1,19,0,1772956742,"apiVersion: apps/v1","kind: Deployment","metadata:","  name: backend","spec:","  replicas: 2","  selector:","    matchLabels:","      app: backend","  template:","    metadata:","      labels:","        app: backend","    spec:","      containers:","      - name: backend","        image: mani2009/backend-app","        ports:","        - containerPort: 3000"
+"9	LINE	0
+	const express = require("express");
+	const mysql = require("mysql");
+	
+	const app = express();
+	
+	const connection = mysql.createConnection({
+	  host: "mysql",
+	  user: "root",
+	  password: "admin123",
+	  database: "testdb"
+	});
+	
+	connection.connect((err) => {
+	  if (err) {
+	    console.log("Database connection failed");
+	  } else {
+	    console.log("Connected to MySQL");
+	  }
+	});
+	
+	// CORS
+	app.use((req,res,next)=>{
+	res.setHeader("Access-Control-Allow-Origin","*")
+	res.setHeader("Access-Control-Allow-Methods","GET,POST,PUT,DELETE")
+	res.setHeader("Access-Control-Allow-Headers","Content-Type")
+	next()
+	})
+	
+	app.get("/",(req,res)=>{
+	res.send("Backend API Running")
+	})
+	
+	app.get("/users",(req,res)=>{
+	connection.query("SELECT * FROM users",(err,results)=>{
+	if(err) throw err
+	res.json(results)
+	})
+	})
+	
+	app.listen(3000,()=>{
+	console.log("Server running on port 3000")
+	})
+|3,0,9,1,42,0,1772956460,"const express = require(\"express\");","const mysql = require(\"mysql\");","","const app = express();","","const connection = mysql.createConnection({","  host: \"mysql\",","  user: \"root\",","  password: \"admin123\",","  database: \"testdb\"","});","","connection.connect((err) => {","  if (err) {","    console.log(\"Database connection failed\");","  } else {","    console.log(\"Connected to MySQL\");","  }","});","","// CORS",>27
+|<"app.use((req,res,next)=>{","res.setHeader(\"Access-Control-Allow-Origin\",\"*\")","res.setHeader(\"Access-Control-Allow-Methods\",\"GET,POST,PUT,DELETE\")","res.setHeader(\"Access-Control-Allow-Headers\",\"Content-Type\")","next()","})","","app.get(\"/\",(req,res)=>{","res.send(\"Backend API Running\")","})","","app.get(\"/users\",(req,res)=>{","connection.query(\"SELECT * FROM users\",(err,results)=>{","if(err) throw err","res.json(results)","})","})","","app.listen(3000,()=>{",>46
+|<"console.log(\"Server running on port 3000\")","})"
 
 # File marks:
-'0  11  17  ~/efs-pvc.yaml
-|4,48,11,17,1772550302,"~/efs-pvc.yaml"
-'1  11  27  ~/efs-sc.yaml
-|4,49,11,27,1772550230,"~/efs-sc.yaml"
-'2  15  28  ~/nginx-efs.yaml
-|4,50,15,28,1772549873,"~/nginx-efs.yaml"
-'3  11  17  ~/efs-pvc.yaml
-|4,51,11,17,1772549718,"~/efs-pvc.yaml"
-'4  1  27  ~/efs-sc.yaml
-|4,52,1,27,1772549673,"~/efs-sc.yaml"
-'5  11  27  ~/efs-sc.yaml
-|4,53,11,27,1772549673,"~/efs-sc.yaml"
-'6  15  28  ~/nginx-ebs.yaml
-|4,54,15,28,1772547968,"~/nginx-ebs.yaml"
-'7  11  17  ~/ebs-pvc.yaml
-|4,55,11,17,1772547892,"~/ebs-pvc.yaml"
-'8  11  18  ~/ebs-sc.yaml
-|4,56,11,18,1772547809,"~/ebs-sc.yaml"
-'9  15  21  ~/nginx-pvc.yaml
-|4,57,15,21,1772546655,"~/nginx-pvc.yaml"
+'0  21  21  ~/liveness.yaml
+|4,48,21,21,1773237676,"~/liveness.yaml"
+'1  21  21  ~/liveliness.yaml
+|4,49,21,21,1773237659,"~/liveliness.yaml"
+'2  26  0  ~/ingress.yaml
+|4,50,26,0,1773160797,"~/ingress.yaml"
+'3  26  0  ~/ingress.yaml
+|4,51,26,0,1773160775,"~/ingress.yaml"
+'4  27  31  ~/jenkins-deployment.yaml
+|4,52,27,31,1773160600,"~/jenkins-deployment.yaml"
+'5  26  0  ~/ingress.yaml
+|4,53,26,0,1773160398,"~/ingress.yaml"
+'6  26  0  ~/ingress.yaml
+|4,54,26,0,1773160398,"~/ingress.yaml"
+'7  1  25  ~/ingress.yaml
+|4,55,1,25,1773159832,"~/ingress.yaml"
+'8  30  25  ~/ingress.yaml
+|4,56,30,25,1773159832,"~/ingress.yaml"
+'9  1  25  ~/ingress.yaml
+|4,57,1,25,1773159832,"~/ingress.yaml"
 
 # Jumplist (newest first):
--'  11  17  ~/efs-pvc.yaml
-|4,39,11,17,1772550302,"~/efs-pvc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772550230,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772550230,"~/efs-sc.yaml"
--'  1  27  ~/efs-sc.yaml
-|4,39,1,27,1772550206,"~/efs-sc.yaml"
--'  1  27  ~/efs-sc.yaml
-|4,39,1,27,1772550206,"~/efs-sc.yaml"
--'  15  28  ~/nginx-efs.yaml
-|4,39,15,28,1772549873,"~/nginx-efs.yaml"
--'  15  28  ~/nginx-efs.yaml
-|4,39,15,28,1772549873,"~/nginx-efs.yaml"
--'  15  28  ~/nginx-efs.yaml
-|4,39,15,28,1772549873,"~/nginx-efs.yaml"
--'  15  28  ~/nginx-efs.yaml
-|4,39,15,28,1772549873,"~/nginx-efs.yaml"
--'  1  0  ~/nginx-efs.yaml
-|4,39,1,0,1772549864,"~/nginx-efs.yaml"
--'  1  0  ~/nginx-efs.yaml
-|4,39,1,0,1772549864,"~/nginx-efs.yaml"
--'  1  0  ~/nginx-efs.yaml
-|4,39,1,0,1772549864,"~/nginx-efs.yaml"
--'  1  0  ~/nginx-efs.yaml
-|4,39,1,0,1772549864,"~/nginx-efs.yaml"
--'  11  17  ~/efs-pvc.yaml
-|4,39,11,17,1772549718,"~/efs-pvc.yaml"
--'  11  17  ~/efs-pvc.yaml
-|4,39,11,17,1772549718,"~/efs-pvc.yaml"
--'  11  17  ~/efs-pvc.yaml
-|4,39,11,17,1772549718,"~/efs-pvc.yaml"
--'  11  17  ~/efs-pvc.yaml
-|4,39,11,17,1772549718,"~/efs-pvc.yaml"
--'  1  0  ~/efs-pvc.yaml
-|4,39,1,0,1772549712,"~/efs-pvc.yaml"
--'  1  0  ~/efs-pvc.yaml
-|4,39,1,0,1772549712,"~/efs-pvc.yaml"
--'  1  0  ~/efs-pvc.yaml
-|4,39,1,0,1772549712,"~/efs-pvc.yaml"
--'  1  0  ~/efs-pvc.yaml
-|4,39,1,0,1772549712,"~/efs-pvc.yaml"
--'  1  0  ~/efs-pvc.yaml
-|4,39,1,0,1772549712,"~/efs-pvc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  11  27  ~/efs-sc.yaml
-|4,39,11,27,1772549673,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  1  0  ~/efs-sc.yaml
-|4,39,1,0,1772549669,"~/efs-sc.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  15  28  ~/nginx-ebs.yaml
-|4,39,15,28,1772547968,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
--'  1  0  ~/nginx-ebs.yaml
-|4,39,1,0,1772547963,"~/nginx-ebs.yaml"
+-'  21  21  ~/liveness.yaml
+|4,39,21,21,1773237676,"~/liveness.yaml"
+-'  1  0  ~/liveness.yaml
+|4,39,1,0,1773237667,"~/liveness.yaml"
+-'  21  21  ~/liveliness.yaml
+|4,39,21,21,1773237659,"~/liveliness.yaml"
+-'  21  21  ~/liveliness.yaml
+|4,39,21,21,1773237659,"~/liveliness.yaml"
+-'  1  0  ~/liveliness.yaml
+|4,39,1,0,1773237652,"~/liveliness.yaml"
+-'  1  0  ~/liveliness.yaml
+|4,39,1,0,1773237652,"~/liveliness.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160797,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160797,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160797,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160797,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160775,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160775,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160775,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160775,"~/ingress.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  27  31  ~/jenkins-deployment.yaml
+|4,39,27,31,1773160600,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  1  0  ~/jenkins-deployment.yaml
+|4,39,1,0,1773160589,"~/jenkins-deployment.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  26  0  ~/ingress.yaml
+|4,39,26,0,1773160398,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  1  25  ~/ingress.yaml
+|4,39,1,25,1773160395,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159832,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  30  25  ~/ingress.yaml
+|4,39,30,25,1773159809,"~/ingress.yaml"
+-'  1  0  ~/ingress.yaml
+|4,39,1,0,1773159800,"~/ingress.yaml"
+-'  1  0  ~/ingress.yaml
+|4,39,1,0,1773159800,"~/ingress.yaml"
+-'  1  0  ~/ingress.yaml
+|4,39,1,0,1773159800,"~/ingress.yaml"
+-'  1  0  ~/ingress.yaml
+|4,39,1,0,1773159800,"~/ingress.yaml"
+-'  1  0  ~/ingress.yaml
+|4,39,1,0,1773159800,"~/ingress.yaml"
+-'  1  0  ~/ingress.yaml
+|4,39,1,0,1773159800,"~/ingress.yaml"
 
 # History of marks within files (newest to oldest):
+
+> ~/liveness.yaml
+	*	1773237674	0
+	"	21	21
+	^	21	22
+	.	21	21
+	+	21	21
+
+> ~/liveliness.yaml
+	*	1773237657	0
+	"	21	21
+	^	21	22
+	.	21	21
+	+	21	21
+
+> ~/ingress.yaml
+	*	1773160796	0
+	"	26	0
+	^	26	0
+	.	25	26
+	+	1	32
+	+	25	26
+
+> ~/jenkins-deployment.yaml
+	*	1773160597	0
+	"	27	31
+	^	27	32
+	.	27	31
+	+	27	31
+
+> ~/wordpress-k8s/mysql-service.yaml
+	*	1773158890	0
+	"	9	23
+	^	9	24
+	.	9	23
+	+	1	14
+	+	9	23
+
+> ~/wordpress-k8s/mysql-pvc.yaml
+	*	1773158640	0
+	"	1	0
+	^	1	0
+	.	2	0
+	+	1	0
+	+	11	17
+	+	2	0
+
+> ~/wordpress-k8s/wordpress-deployment.yaml
+	*	1773158434	0
+	"	31	26
+	^	31	27
+	.	31	26
+	+	1	19
+	+	31	26
+
+> ~/wordpress-k8s/mysql-deployment.yaml
+	*	1773158402	0
+	"	42	29
+	^	42	30
+	.	42	29
+	+	1	29
+	+	1	19
+	+	42	29
+
+> /tmp/kubectl-edit-2731213458.yaml
+	*	1773157776	0
+	"	41	25
+
+> /tmp/kubectl-edit-1204719028.yaml
+	*	1773157495	0
+	"	46	13
+	^	46	14
+	.	46	14
+	+	41	21
+	+	42	37
+	+	46	18
+	+	43	9
+	+	44	12
+	+	45	14
+	+	46	28
+	+	47	33
+	+	48	9
+	+	43	10
+	+	44	12
+	+	45	14
+	+	46	14
+
+> /tmp/kubectl-edit-2940343158.yaml
+	*	1773157232	0
+	"	77	10
+	^	77	11
+
+> ~/wordpress-k8s/mysql-pv.yaml
+	*	1773155858	0
+	"	11	17
+	^	11	18
+	.	11	17
+	+	1	20
+	+	1	14
+	+	11	17
+
+> ~/wordpress-k8s/wordpress-service.yaml
+	*	1773155644	0
+	"	11	17
+	^	11	18
+	.	11	17
+	+	11	17
+
+> ~/wordpress-k8s/mysql-secret.yaml
+	*	1773155409	0
+	"	7	23
+	^	7	24
+	.	7	23
+	+	7	23
+
+> ~/march2026/jenkins.pod.yml
+	*	1773000215	0
+	"	8	29
+	^	8	30
+	.	8	29
+	+	8	29
+
+> ~/jenkins-service.yaml
+	*	1772982667	0
+	"	13	20
+	^	13	21
+	.	13	20
+	+	13	20
+
+> ~/jenkins-deploy.yaml
+	*	1772982503	0
+	"	36	31
+	^	36	34
+	.	36	33
+	+	36	33
+
+> ~/two-tier-app/k8s/mysql-deploy.yaml
+	*	1772977742	0
+	"	24	28
+	^	24	29
+	.	24	28
+	+	1	28
+	+	1	24
+	+	1	19
+	+	24	28
+
+> ~/two-tier-app/frontend/style.css
+	*	1772976910	0
+	"	15	0
+	^	15	1
+	.	15	0
+	+	15	0
+
+> ~/two-tier-app/frontend/app.js
+	*	1772976878	0
+	"	15	0
+	^	15	1
+	.	15	0
+	+	1	19
+	+	1	0
+	+	1	19
+	+	15	0
+
+> ~/two-tier-app/frontend/Dockerfile
+	*	1772976826	0
+	"	5	8
+	^	5	9
+	.	5	8
+	+	5	8
+
+> ~/two-tier-app/frontend/index.html
+	*	1772976616	0
+	"	25	6
+	^	25	7
+	.	25	6
+	+	25	6
+
+> ~/two-tier-app/k8s/backend-deploy.yaml
+	*	1772956748	0
+	"	20	28
+	^	20	29
+	.	20	28
+	+	1	28
+	+	1	19
+	+	20	28
+
+> /tmp/kubectl-edit-4081466866.yaml
+	*	1772956616	0
+	"	1	0
+
+> ~/two-tier-app/backend/server.js
+	*	1772956473	0
+	"	34	1
+	^	42	2
+	.	42	1
+	+	1	34
+	+	1	31
+	+	1	35
+	+	42	1
+
+> /tmp/kubectl-edit-4201413434.yaml
+	*	1772954697	0
+	"	31	15
+	^	31	16
+	.	31	15
+	+	31	15
+
+> ~/two-tier-app/k8s/frontend-service.yaml
+	*	1772954237	0
+	"	11	18
+	^	11	19
+	.	11	18
+	+	11	18
+
+> ~/two-tier-app/k8s/frontend-deploy.yaml
+	*	1772954187	0
+	"	17	22
+	^	17	23
+	.	17	22
+	+	19	26
+	+	17	22
+
+> ~/two-tier-app/k8s/backend-service.yaml
+	*	1772954012	0
+	"	9	13
+	^	9	14
+	.	9	13
+	+	9	13
+
+> ~/two-tier-app/k8s/mysql-service.yaml
+	*	1772953970	0
+	"	9	13
+	^	9	14
+	.	9	13
+	+	9	13
+
+> ~/two-tier-app/backend/Dockerfile
+	*	1772953118	0
+	"	13	23
+	^	13	24
+	.	13	23
+	+	13	23
+
+> ~/limit-gur.yaml
+	*	1772799314	0
+	"	12	17
+	^	12	18
+	.	12	17
+	+	15	22
+	+	11	14
+	+	12	17
+
+> ~/nginx-limit.yaml
+	*	1772799077	0
+	"	8	15
+	^	8	16
+	.	8	15
+	+	8	15
+
+> ~/Limitrange.yaml
+	*	1772798918	0
+	"	15	18
+	^	15	19
+	.	15	18
+	+	15	18
+
+> ~/statefulset.yaml
+	*	1772798808	0
+	"	49	12
+	^	24	13
+	.	24	12
+	+	49	21
+	+	24	12
+
+> ~/Resourcequota.yaml
+	*	1772797584	0
+	"	7	12
+	^	7	13
+	.	7	12
+	+	7	12
+
+> ~/limitrange.yaml
+	*	1772797498	0
+	"	15	18
+	^	15	19
+	.	15	18
+	+	15	18
+
+> ~/tomcat-deployment-conf.yaml
+	*	1772733266	0
+	"	33	28
+	^	33	29
+	.	33	28
+	+	33	28
+
+> ~/server.xml
+	*	1772733209	0
+	"	8	8
+	^	8	9
+	.	8	8
+	+	8	8
+
+> ~/tomcat-users.xml
+	*	1772733182	0
+	"	5	14
+	^	5	15
+	.	5	14
+	+	5	14
+
+> ~/nginx-deploy-conf.yaml
+	*	1772729080	0
+	"	6	12
+	^	6	13
+	.	6	12
+	+	24	25
+	+	6	12
+
+> ~/config.properties
+	*	1772728715	0
+	"	2	8
+	^	2	9
+	.	3	0
+	+	2	0
+	+	1	0
+	+	3	0
+
+> ~/nginx-config.yaml
+	*	1772728319	0
+	"	12	0
+	^	12	0
+	.	11	24
+	+	11	24
+
+> ~/configmap.yaml
+	*	1772728239	0
+	"	8	5
+	^	8	6
+	.	8	5
+	+	8	17
+	+	7	3
+	+	8	5
+
+> ~/jenkins-pvc.yaml
+	*	1772616538	0
+	"	11	17
+	^	11	18
+	.	11	17
+	+	11	17
+
+> ~/efs-sc.yaml
+	*	1772616428	0
+	"	10	20
+	^	10	21
+	.	10	20
+	+	1	29
+	+	11	27
+	+	10	20
 
 > ~/efs-pvc.yaml
 	*	1772550301	0
@@ -451,14 +836,6 @@
 	^	11	18
 	.	11	17
 	+	11	17
-
-> ~/efs-sc.yaml
-	*	1772550209	0
-	"	11	27
-	^	11	28
-	.	11	27
-	+	1	29
-	+	11	27
 
 > ~/nginx-efs.yaml
 	*	1772549872	0
